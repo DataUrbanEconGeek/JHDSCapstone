@@ -1,61 +1,142 @@
 
 suppressPackageStartupMessages( c( 
-        library(e1071),
+        library(data.table),
+        library(dplyr),
+        library(RWeka),
+        library(tm),
+        library(stringr),
         library(shiny),
         library(shinythemes),
         library(slam)
                                    ))
 
-load(file = "./Models1.RData")
-load(file = "./Models2.RData")
+load(file = "./training_data.RData")
 
-YourInputText <- function(x) {
-        Tsplit <- strsplit(x, split = " ")
-        Tfactor <- factor(unlist(Tsplit), levels = Unigram_levels)
-        Tlist <- as.list(Tfactor)
-        Tdf <- do.call(cbind.data.frame, Tlist)
-        for (i in Tdf) {
-                temp <- c(paste0("X", 1:length(Tdf)))
-                names(Tdf) <- temp
+
+prediction <- function(x){
+        text_split <- unlist(strsplit(x, split = " "))
+        if(length(text_split) == 1){
+                group_predictors <- bigram_df[first_terms == text_split]
+                if(nrow(group_predictors) > 0){
+                        sort <- group_predictors[order(probs, decreasing = TRUE)]
+                        if(nrow(sort) >= 50){
+                                top_prob <- sort[1:50, ]
+                                term_and_prob <- data.frame(word = top_prob$last_term, 
+                                                            probability = top_prob$probs)
+                        } else {
+                                top_prob <- sort[1:nrow(sort), ]
+                                temp_df <- data.frame(word = top_prob$last_term, 
+                                                      probability = top_prob$probs)
+                                uni_temp <- unigram_df[!(unigram_df$last_term %in%
+                                                                 top_prob$last_term)]
+                                beta_lop <- bigram_lop[first_terms == text_split]$leftoverprob
+                                n_freq <- sum(unigram_df$frequency)
+                                alpha <- beta_lop / sum((uni_temp$frequency * uni_temp$discount)
+                                                        / n_freq)
+                                top_prob2 <- mutate(uni_temp, final_proba = alpha * probs)
+                                temp_df2 <- data.frame(word = top_prob2$last_term, 
+                                                       probability = top_prob2$probs)
+                                term_and_prob <- rbind(temp_df, temp_df2)
+                                term_and_prob <- term_and_prob[1:50, ]
+                        }
+                } else {
+                        sort <- unigram_df[order(probs, decreasing = TRUE)]
+                        top_prob <- sort[1:50, ]
+                        term_and_prob <- data.frame(word = top_prob$last_term, probability =
+                                                            top_prob$probs)
+                }
+        } else {
+                last_2 <- tail(text_split, 2)
+                gram_recon <- paste(last_2[-2], last_2[-1], sep = " ")
+                group_predictors <- trigram_df[first_terms == gram_recon]
+                if(nrow(group_predictors) > 0){
+                        sort <- group_predictors[order(probs, decreasing = TRUE)]
+                        if(nrow(sort) >= 50){
+                                top_prob <- sort[1:50, ]
+                                term_and_prob <- data.frame(word = top_prob$last_term,
+                                                            probability = top_prob$probs)
+                        } else {
+                                top_prob <- sort[1:nrow(sort), ]
+                                temp_df <- data.frame(word = top_prob$last_term, 
+                                                      probability = top_prob$probs)
+                                beta_lop <- trigram_lop[first_terms == gram_recon]$leftoverprob
+                                subset_group <- bigram_df[first_terms == last[2]]
+                                n_freq <- sum(subset_group$frequency)
+                                bi_temp <- subset_group[!(subset_group$last_term %in%
+                                                                  top_prob$last_term)]
+                                alpha <- beta_lop / sum((bi_temp$frequency * bi_temp$discount)
+                                                        / n_freq)
+                                top_prob2 <- mutate(bi_temp, final_proba = alpha * probs)
+                                temp_df2 <- data.frame(word = top_prob2$last_term, 
+                                                       probability = top_prob2$probs)
+                                temp_df3 <- rbind(temp_df, temp_df2)
+                                if(nrow(temp_df3) >= 50){
+                                        term_and_prob <- temp_df3[1:50, ]
+                                } else {
+                                        n_freq <- sum(unigram_df$frequency)
+                                        uni_temp <- unigram_df[!(unigram_df$last_term %in%
+                                                                         temp_df3$word)]
+                                        alpha <- beta_lop / sum((uni_temp$frequency * 
+                                                                         uni_temp$discount) / 
+                                                                        n_freq)
+                                        top_prob3 <- mutate(uni_temp, final_proba = 
+                                                                    alpha * probs)
+                                        temp_df4 <- data.frame(word = top_prob3$last_term, 
+                                                               probability = top_prob3$probs)
+                                        temp_df5 <- rbind(temp_df3, temp_df4)
+                                        term_and_prob <- temp_df5[1:50, ]
+                                }
+                        }
+                } else {
+                        last <- last_2[2]
+                        group_predictors2 <- bigram_df[first_terms == last]
+                        if(nrow(group_predictors2) > 0){
+                                sort <- group_predictors2[order(probs, decreasing = TRUE)]
+                                if(nrow(sort) >= 50){
+                                        top_prob <- sort[1:50, ]
+                                        term_and_prob <- data.frame(word = top_prob$last_term,
+                                                                    probability = top_prob$probs)
+                                } else {
+                                        top_prob <- sort[1:nrow(sort), ]
+                                        temp_df <- data.frame(word = top_prob$last_term, 
+                                                              probability = top_prob$probs)
+                                        uni_temp <- unigram_df[!(unigram_df$last_term %in%
+                                                                         top_prob$last_term)]
+                                        beta_lop <- bigram_lop[first_terms == 
+                                                                       last]$leftoverprob
+                                        n_freq <- sum(unigram_df$frequency)
+                                        alpha <- beta_lop / sum((uni_temp$frequency * 
+                                                                         uni_temp$discount)
+                                                                / n_freq)
+                                        top_prob2 <- mutate(uni_temp, final_proba = alpha * 
+                                                                    probs)
+                                        temp_df2 <- data.frame(word = top_prob2$last_term, 
+                                                               probability = top_prob2$probs)
+                                        term_and_prob <- rbind(temp_df, temp_df2)
+                                        term_and_prob <- term_and_prob[1:50, ]
+                                }
+                        } else {
+                                sort <- unigram_df[order(probs, decreasing = TRUE)]
+                                top_prob <- sort[1:50, ]
+                                term_and_prob <- data.frame(word = top_prob$last_term,
+                                                            probability = top_prob$probs)
+                        }
+                }
         }
-        return(Tdf)
+        return(as.character(term_and_prob$word[1])) 
 }
-
-
-Prediction <- function(s) {
-        counts <- strsplit(s, split = " ")
-        counts <- length(factor(unlist(counts)))
-        answ <- c("NA")
-        if (counts == 1) {
-                answ <- predict(Bi_naiveBayes, YourInputText(s))
-        } else if (counts == 2) {
-                answ <- predict(Tri_naiveBayes, YourInputText(s))
-        } else if (counts == 3) {
-                answ <- predict(Quad_naiveBayes, YourInputText(s))
-        } else if (counts >= 4) {
-                InputText1 <- YourInputText(s)
-                m <- length(InputText1) - 2
-                InputText1 <- InputText1[, m:length(InputText1)]
-                names(InputText1) <- c("X1", "X2", "X3")
-                answ <- predict(Quad_naiveBayes, InputText1)
-        }
-        
-        return(as.character(answ))
-}
-
-
 
 shinyServer(function(input, output) {
         
         wordPrediction <- reactive({
-                s <- input$text
-                s <- as.character(s)
-                wordPrediction <- Prediction(s)})
+                x <- input$text
+                x <- as.character(x)
+                wordPrediction <- prediction(x)})
         
         SentaPrediction <- reactive({
-                t <- input$text
-                t <- as.character(t)
-                SentaPrediction <- paste(t, Prediction(t), sep = " ")})
+                x <- input$text
+                x <- as.character(x)
+                SentaPrediction <- paste(x, wordPrediction(), sep = " ")})
         
         output$predictedWord <- renderText(wordPrediction())
         output$enteredWords <- renderText(SentaPrediction())

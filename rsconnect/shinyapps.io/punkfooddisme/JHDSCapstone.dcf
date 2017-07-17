@@ -1,8 +1,10 @@
 name: JHDSCapstone
+title:
 account: punkfooddisme
 server: shinyapps.io
-bundleId: 442952
+appId: 100205
+bundleId: 905457
 url: https://punkfooddisme.shinyapps.io/JHDSCapstone/
-when: 1462487293.18499
+when: 1500260135.08809
 asMultiple: FALSE
 asStatic: FALSE
