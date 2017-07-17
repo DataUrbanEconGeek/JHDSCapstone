@@ -7,7 +7,11 @@ suppressPackageStartupMessages( c(
         library(stringr),
         library(shiny),
         library(shinythemes),
-        library(slam)
+        library(slam),
+        library(wordcloud),
+        library(RColorBrewer),
+        library(scales),
+        library(ggplot2)
                                    ))
 
 load(file = "./training_data.RData")
@@ -123,23 +127,69 @@ prediction <- function(x){
                         }
                 }
         }
-        return(as.character(term_and_prob$word[1])) 
+        return(term_and_prob) 
+}
+
+simple_output <- function(x){
+        df <- prediction(x)
+        one_obs <- as.character(df$word[1])
+        return(one_obs)
+}
+
+color_set2 <- rev(hue_pal()(9))
+
+cloud_output <- function(x){
+        df <- prediction(x)
+        df_ext <- mutate(df, fake_freq = probability * 500000)
+        cloud <- wordcloud(na.omit(df_ext$word[1:50]), 
+                                df_ext$fake_freq[1:50], 
+                                scale = c(5,1), min.freq = 1, 
+                                colors = color_set2,
+                                rot.per=0.35, use.r.layout=FALSE, 
+                                random.order = FALSE)
+        return(cloud)
 }
 
 shinyServer(function(input, output) {
         
-        wordPrediction <- reactive({
+        word_prediction <- reactive({
                 x <- input$text
                 x <- as.character(x)
-                wordPrediction <- prediction(x)})
+                word_prediction <- simple_output(x)
+        })
         
-        SentaPrediction <- reactive({
+        sentance_put_together <- reactive({
                 x <- input$text
                 x <- as.character(x)
-                SentaPrediction <- paste(x, wordPrediction(), sep = " ")})
+                sentance_put_together <- paste(x, word_prediction(), sep = " ")
+        })
         
-        output$predictedWord <- renderText(wordPrediction())
-        output$enteredWords <- renderText(SentaPrediction())
+        cloud <- reactive({
+                x <- input$text
+                x <- as.character(x)
+                cloud <- cloud_output(x)
+        })
+        
+        bar <- reactive({
+                x <- input$text
+                x <- as.character(x)
+                bar <- barplot_output(x)
+        })
+        
+        output$predicted_word <- renderText(word_prediction())
+        output$entered_words <- renderText(sentance_put_together())
+        output$cloud_plot <- renderPlot(cloud())
+        output$bar_plot <- reactivePlot(function() {
+                x <- input$text
+                x <- as.character(x)
+                df <- prediction(x)
+                df$word <- factor(df$word, levels = df[order(df$probability, decreasing = TRUE), "word"])
+                df_top_10 <- df[1:10,]
+                ggbar_plot <- ggplot(df_top_10, aes(x = word, y = probability)) +
+                        geom_bar(stat = "identity", fill = "blue") + 
+                        theme(legend.position = "none")
+                print(ggbar_plot)
+        })
 })
 
 

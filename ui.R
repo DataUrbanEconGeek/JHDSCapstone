@@ -25,12 +25,21 @@ shinyUI(fluidPage(
                                         tags$hr(),
                                         h4("Next Word Prediction:"),
                                         tags$span(
-                                                tags$strong(tags$h3(textOutput("predictedWord")))),
+                                                tags$strong(tags$h3(textOutput("predicted_word")))),
                                         tags$hr(),
                                         h4("Combined Output:"),
-                                        tags$em(tags$h4(textOutput("enteredWords"))),
-                                        align="center")
+                                        tags$em(tags$h4(textOutput("entered_words"))),
+                                        tags$hr(),
+                                        h4("Top 10 Predictions"),
+                                        tags$span(
+                                                tags$img(plotOutput("bar_plot"))
                                         ),
+                                        align="center"),
+                                        tags$hr(),
+                                        tags$span(
+                                                tags$img(plotOutput("cloud_plot"))
+                                        )
+                                ),
                                 column(3)
                             )
                    )
